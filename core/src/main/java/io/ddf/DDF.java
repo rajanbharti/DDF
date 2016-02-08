@@ -288,7 +288,7 @@ public abstract class DDF extends ALoggable //
     return this.getManager().getEngine();
   }
 
-  public DDFManager.EngineType getEngineType() {
+  public String getEngineType() {
     return this.getManager().getEngineType();
   }
 

@@ -56,7 +56,7 @@ public abstract class AStatisticsSupporter extends ADDFFunctionalGroupHandler im
 
     if (numericColumns.size() > 0) {
 
-      if (this.getDDF().getEngineType().equals(DDFManager.EngineType.SPARK)) {
+      if (this.getDDF().getEngineType().equals("spark")) {
         List<String> specs = Lists.newArrayList();
         for (String columnName : columnNames) {
           String query = fiveNumHiveFunction(columnName);
@@ -76,8 +76,8 @@ public abstract class AStatisticsSupporter extends ADDFFunctionalGroupHandler im
         rs = this.getDDF()
             .sql(command, String.format("Unable to get fivenum summary of the given columns from table %%s")).getRows()
             .get(0).replaceAll("\\[|\\]| ", "").replaceAll(",", "\t").split("\t| ");
-      } else if (this.getDDF().getEngineType().equals(DDFManager.EngineType.POSTGRES)
-              || this.getDDF().getEngineType().equals(DDFManager.EngineType.REDSHIFT)) {
+      } else if (this.getDDF().getEngineType().equals("postgres")
+              || this.getDDF().getEngineType().equals("redshift")) {
 
         rs = new String[numericColumns.size()*5];
 

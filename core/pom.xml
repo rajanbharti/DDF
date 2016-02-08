@@ -252,8 +252,8 @@
         </dependency>
         <dependency>
             <groupId>org.scalacheck</groupId>
-            <artifactId>scalacheck_2.10</artifactId>
-            <version>1.11.3</version>
+            <artifactId>scalacheck_2.11</artifactId>
+            <version>1.10.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>

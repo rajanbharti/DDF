@@ -77,449 +77,416 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class DDFManager extends ALoggable implements IDDFManager, IHandleSqlLike, ISupportPhantomReference {
 
-  public enum EngineType {
-    SPARK,
-    JDBC,
-    SFDC,
-    POSTGRES,
-    AWS,
-    REDSHIFT,
-    BASIC,
-    FLINK
-    ;
 
-    public static EngineType fromString(String str) throws DDFException {
-      if (str.equalsIgnoreCase("spark")) {
-        return SPARK;
-      } else if (str.equalsIgnoreCase("jdbc")) {
-        return JDBC;
-      } else if (str.equalsIgnoreCase("sfdc")) {
-        return SFDC;
-      } else if (str.equalsIgnoreCase("postgres")) {
-        return POSTGRES;
-      } else if(str.equalsIgnoreCase("aws")) {
-        return AWS;
-      } else if(str.equalsIgnoreCase("redshift")) {
-        return REDSHIFT;
-      } else if(str.equalsIgnoreCase("basic")) {
-        return BASIC;
-      } else if (str.equalsIgnoreCase("flink")) {
-        return FLINK;
-      } else {
-        throw new DDFException("Engine type should be either spark, flink, jdbc, postgres, aws, redshift, basic");
-      }
-    }
-  }
-
-  private EngineType engineType;
-  // DataSourceDescriptor.
-  private DataSourceDescriptor mDataSourceDescriptor;
-  protected DataSourceManager mDataSourceManager;
+    private String engineType;
+    // DataSourceDescriptor.
+    private DataSourceDescriptor mDataSourceDescriptor;
+    protected DataSourceManager mDataSourceManager;
 
 
-  public EngineType getEngineType() {
-    return engineType;
-  }
-
-  public void setEngineType(EngineType engineType) {
-    this.engineType = engineType;
-  }
-
-  public DataSourceDescriptor getDataSourceDescriptor() {
-    return mDataSourceDescriptor;
-  }
-
-  public void setDataSourceDescriptor(DataSourceDescriptor dataSourceDescriptor) {
-    this.mDataSourceDescriptor = dataSourceDescriptor;
-  }
-
-  /**
-   * List of existing DDFs, only in memory one.
-   */
-  protected DDFCache mDDFCache = new DDFCache();
-
-  protected Map<String, IModel> mModels = new ConcurrentHashMap<String, IModel>();
-
-  public void addDDF(DDF ddf) throws DDFException {
-    mDDFCache.addDDF(ddf);
-  }
-
-  public void removeDDF(DDF ddf) throws DDFException {
-    ddf.getRepresentationHandler().uncacheAll();
-    ddf.getRepresentationHandler().reset();
-    mDDFCache.removeDDF(ddf);
-  }
-
-  public DDF[] listDDFs() {
-    return mDDFCache.listDDFs();
-  }
-
-  public DDF getDDF(UUID uuid) throws DDFException {
-    return mDDFCache.getDDF(uuid);
-  }
-
-  public boolean hasDDF(UUID uuid) {
-    return mDDFCache.hasDDF(uuid);
-  }
-
-
-  public DDF getDDFByName(String name) throws DDFException {
-    return mDDFCache.getDDFByName(name);
-  }
-
-  public synchronized void setDDFName(DDF ddf, String name) throws DDFException {
-    mDDFCache.setDDFName(ddf, name);
-  }
-
-  public synchronized void setDDFUUID(DDF ddf, UUID uuid) throws DDFException {
-    mDDFCache.setDDFUUID(ddf, uuid);
-  }
-
-  public void addModel(IModel model) {
-    mModels.put(model.getName(), model);
-  }
-
-  public IModel getModel(String modelName) {
-    return mModels.get(modelName);
-  }
-
-  public DDF serialize2DDF(IModel model) throws DDFException {
-    // TODO
-    // DDF df = new DDF(this, model.getRawModel(), new Class[] {IModel.class} , null, model.getName(), null);
-    return null;
-  }
-
-  public IModel deserialize2Model(DDF ddf) {
-    // TODO
-    return null;
-  }
-
-  public DDFManager() {
-    this.startup();
-  }
-
-  // TODO: check the correctness here.
-  public DDFManager(DataSourceDescriptor dataSourceDescriptor) {
-    this.startup();
-  }
-
-
-  public static DDFManager get(EngineType engineType, DataSourceDescriptor dataSourceDescriptor) throws DDFException {
-    if (engineType == null) {
-      engineType = EngineType.fromString(ConfigConstant.ENGINE_NAME_DEFAULT.toString());
+    public String getEngineType() {
+        return engineType;
     }
 
-    String className = Config.getValue(engineType.name(), ConfigConstant.FIELD_DDF_MANAGER);
-    // if (Strings.isNullOrEmpty(className)) return null;
-    if (Strings.isNullOrEmpty(className)) {
-      throw new DDFException("ERROR: When initializaing ddfmanager, class " +
-              className + " not found");
+    public void setEngineType(String engineType) {
+        this.engineType = engineType;
     }
 
-    try {
-      Class[] classType = new Class[2];
-      classType[0] = DataSourceDescriptor.class;
-      classType[1] = EngineType.class;
-
-      DDFManager manager = (DDFManager) Class.forName(className).getDeclaredConstructor(classType)
-          .newInstance(dataSourceDescriptor, engineType);
-      return manager;
-    } catch (Exception e) {
-
-      throw new DDFException(e);
-    }
-  }
-
-  /**
-   * Returns a new instance of {@link DDFManager} for the given engine type
-   *
-   * @param engineType
-   * @return
-   * @throws Exception
-   */
-  public static DDFManager get(EngineType engineType) throws DDFException {
-    if (engineType == null) {
-      engineType = EngineType.fromString(ConfigConstant.ENGINE_NAME_DEFAULT.toString());
+    public DataSourceDescriptor getDataSourceDescriptor() {
+        return mDataSourceDescriptor;
     }
 
-    String className = Config.getValue(engineType.name(), ConfigConstant.FIELD_DDF_MANAGER);
-    if (Strings.isNullOrEmpty(className)) {
-      throw new DDFException("ERROR: When initializaing ddfmanager, class " +
-              className + " not found");
+    public void setDataSourceDescriptor(DataSourceDescriptor dataSourceDescriptor) {
+        this.mDataSourceDescriptor = dataSourceDescriptor;
     }
 
-    try {
-      DDFManager manager = (DDFManager) Class.forName(className).newInstance();
-      if (manager == null) {
-        throw new DDFException("ERROR: Initializaing manager fail.");
-      }
-      return manager;
+    /**
+     * List of existing DDFs, only in memory one.
+     */
+    protected DDFCache mDDFCache = new DDFCache();
 
-    } catch (Exception e) {
-      // throw new DDFException("Cannot get DDFManager for engine " + engineName, e);
-      throw new DDFException(
-          "Cannot get DDFManager for engine " + engineType.name() + " " +
-                  "classname " + className + " " + e.getMessage());
+    protected Map<String, IModel> mModels = new ConcurrentHashMap<String, IModel>();
 
+    public void addDDF(DDF ddf) throws DDFException {
+        mDDFCache.addDDF(ddf);
     }
-  }
 
-  private DDF mDummyDDF;
-
-  protected DDF getDummyDDF() throws DDFException {
-    if (mDummyDDF == null) mDummyDDF = this.newDDF(this);
-    return mDummyDDF;
-  }
-
-
-  public DDF newDDF(DDFManager manager, Object data, Class<?>[] typeSpecs, String name, Schema schema)
-      throws DDFException {
-    DDF ddf = this.newDDF(new Class<?>[] { DDFManager.class, Object.class,
-				Class[].class,  String.class, Schema.class },
-				new Object[] { manager, data, typeSpecs, name, schema });
-    return ddf;
-  }
-
-  public DDF newDDF(Object data, Class<?>[] typeSpecs, String name, Schema schema)
-      throws DDFException {
-
-    // @formatter:off
-    DDF ddf = this.newDDF(new Class<?>[] { DDFManager.class, Object.class,
-						Class[].class, String.class,  Schema.class },
-						new Object[] { this, data, typeSpecs, name, schema });
-    return ddf;
-  }
-
-  /**
-   * Instantiates a new DDF of the type specified in ddf.ini as "DDF", using the constructor that requires only
-   * {@link DDFManager} as an argument.
-   *
-   * @param manager the {@link DDFManager} to assign
-   * @return the newly instantiated DDF
-   * @throws DDFException
-   */
-  public DDF newDDF(DDFManager manager) throws DDFException {
-    DDF ddf = this.newDDF(new Class<?>[] { DDFManager.class }, new Object[] { manager });
-    ddf.getPersistenceHandler().setPersistable(false);
-    return ddf;
-  }
-
-  /**
-   * Instantiates a new DDF of the type specified in ddf.ini as "DDF", passing in this DDFManager as the sole argument
-   *
-   * @return the newly instantiated DDF
-   * @throws DDFException
-   */
-  public DDF newDDF() throws DDFException {
-    DDF ddf = this.newDDF(new Class<?>[] { DDFManager.class }, new Object[] { this });
-    ddf.getPersistenceHandler().setPersistable(false);
-    return ddf;
-  }
-
-  @SuppressWarnings("unchecked")
-  private DDF newDDF(Class<?>[] argTypes, Object[] argValues) throws DDFException {
-
-    String className = Config.getValueWithGlobalDefault(this.getEngine(), ConfigConstant.FIELD_DDF);
-    if (Strings.isNullOrEmpty(className)) throw new DDFException(String.format(
-        "Cannot determine class name for [%s] %s", this.getEngine(), "DDF"));
-
-    try {
-      Constructor<DDF> cons = (Constructor<DDF>) Class.forName(className).getDeclaredConstructor(argTypes);
-      if (cons == null) throw new DDFException("Cannot get constructor for " + className);
-
-      cons.setAccessible(true); // make sure we can use it whether it's
-      // private, protected, or public
-
-      DDF ddf = cons.newInstance(argValues);
-      if (ddf == null) throw new DDFException("Cannot instantiate a new instance of " + className);
-      this.addDDF(ddf);
-      return ddf;
-
-    } catch (Exception e) {
-      throw new  DDFException(String.format(
-          "While instantiating a new %s DDF of class %s with argTypes %s and argValues %s", this.getEngine(),
-          className, Arrays.toString(argTypes), Arrays.toString(argValues)), e);
+    public void removeDDF(DDF ddf) throws DDFException {
+        ddf.getRepresentationHandler().uncacheAll();
+        ddf.getRepresentationHandler().reset();
+        mDDFCache.removeDDF(ddf);
     }
-  }
 
-  // ////// ISupportPhantomReference ////////
+    public DDF[] listDDFs() {
+        return mDDFCache.listDDFs();
+    }
 
-  public void cleanup() {
-    // Do nothing in the base
-  }
+    public DDF getDDF(UUID uuid) throws DDFException {
+        return mDDFCache.getDDF(uuid);
+    }
 
-  // ////// IDDFManager ////////
-
-  @Override
-  public void startup() {
-
-    PhantomReference.register(this);
-  }
-
-  @Override
-  public void shutdown() {
-    // Do nothing in the base
-  }
+    public boolean hasDDF(UUID uuid) {
+        return mDDFCache.hasDDF(uuid);
+    }
 
 
-  // ////// IDDFRegistry ////////
+    public DDF getDDFByName(String name) throws DDFException {
+        return mDDFCache.getDDFByName(name);
+    }
 
-  private static final ObjectRegistry sObjectRegistry = new ObjectRegistry();
-  public final ObjectRegistry REGISTRY = sObjectRegistry;
+    public synchronized void setDDFName(DDF ddf, String name) throws DDFException {
+        mDDFCache.setDDFName(ddf, name);
+    }
 
+    public synchronized void setDDFUUID(DDF ddf, UUID uuid) throws DDFException {
+        mDDFCache.setDDFUUID(ddf, uuid);
+    }
 
-  // ////// IHandleSql facade methods ////////
-  @Override
-  public DDF sql2ddf(String command) throws DDFException {
-    return this.sql2ddf(command, null, null, null);
-  }
+    public void addModel(IModel model) {
+        mModels.put(model.getName(), model);
+    }
 
-  public DDF sql2ddf(String command, Boolean queyOnDDF) throws DDFException {
-    return this.sql2ddf(command,
-            new SQLDataSourceDescriptor(null, queyOnDDF, null, null, null));
-  }
+    public IModel getModel(String modelName) {
+        return mModels.get(modelName);
+    }
 
-  public DDF sql2ddf(String command, DataSourceDescriptor dataSource)
-          throws  DDFException {
-    return this.sql2ddf(command, null, dataSource, null);
-  }
+    public DDF serialize2DDF(IModel model) throws DDFException {
+        // TODO
+        // DDF df = new DDF(this, model.getRawModel(), new Class[] {IModel.class} , null, model.getName(), null);
+        return null;
+    }
 
-  @Override
-  public DDF sql2ddf(String command, Schema schema) throws DDFException {
-    return this.sql2ddf(command, schema, null, null);
-  }
+    public IModel deserialize2Model(DDF ddf) {
+        // TODO
+        return null;
+    }
 
-  @Override
-  public DDF sql2ddf(String command, DataFormat dataFormat)
-          throws DDFException {
-    return this.sql2ddf(command, null, null, dataFormat);
-  }
+    public DDFManager() {
+        this.startup();
+    }
 
-  @Override
-  public DDF sql2ddf(String command,
-                     Schema schema,
-                     DataSourceDescriptor dataSource)
-          throws DDFException {
-    return this.sql2ddf(command, schema, dataSource, null);
-  }
-
-  @Override
-  public DDF sql2ddf(String command, Schema schema, DataFormat dataFormat)
-          throws DDFException {
-    return this.sql2ddf(command, schema, null, dataFormat);
-  }
-
-  @Override
-  public DDF sql2ddf(String command,
-                     Schema schema,
-                     DataSourceDescriptor dataSource,
-                     DataFormat dataFormat) throws DDFException {
-    return this.getDummyDDF().getSqlHandler().
-            sql2ddfHandle(command, schema, dataSource, dataFormat);
-  }
+    // TODO: check the correctness here.
+    public DDFManager(DataSourceDescriptor dataSourceDescriptor) {
+        this.startup();
+    }
 
 
-  @Override
-  public SqlResult sql(String command) throws DDFException {
-    return this.sql(command, (Integer) null);
-  }
+    public static DDFManager get(String engineType, DataSourceDescriptor dataSourceDescriptor) throws DDFException {
+        if (engineType == null) {
+            engineType = (ConfigConstant.ENGINE_NAME_DEFAULT.toString());
+        }
 
-  public SqlResult sql(String command, Boolean queryOnDDF) throws DDFException {
-    return this.sql(command,
-            new SQLDataSourceDescriptor(null, queryOnDDF,null, null, null));
-  }
+        String className = Config.getValue(engineType, ConfigConstant.FIELD_DDF_MANAGER);
+        // if (Strings.isNullOrEmpty(className)) return null;
+        if (Strings.isNullOrEmpty(className)) {
+            throw new DDFException("ERROR: When initializaing ddfmanager, class " +
+                    className + " not found");
+        }
 
-  @Override
-  public SqlResult sql(String command, Integer maxRows) throws DDFException {
-    return this.sql(command, maxRows, null);
-  }
+        try {
+            Class[] classType = new Class[2];
+            classType[0] = DataSourceDescriptor.class;
+            classType[1] = engineType.getClass();
+
+            DDFManager manager = (DDFManager) Class.forName(className).getDeclaredConstructor(classType)
+                    .newInstance(dataSourceDescriptor, engineType);
+            return manager;
+        } catch (Exception e) {
+
+            throw new DDFException(e);
+        }
+    }
+
+    /**
+     * Returns a new instance of {@link DDFManager} for the given engine type
+     *
+     * @param engineType
+     * @return
+     * @throws Exception
+     */
+    public static DDFManager get(String engineType) throws DDFException {
+        if (engineType == null) {
+            engineType = ConfigConstant.ENGINE_NAME_DEFAULT.toString();
+        }
+
+        String className = Config.getValue(engineType, ConfigConstant.FIELD_DDF_MANAGER);
+        if (Strings.isNullOrEmpty(className)) {
+            throw new DDFException("ERROR: When initializaing ddfmanager, class " +
+                    className + " not found");
+        }
+
+        try {
+            DDFManager manager = (DDFManager) Class.forName(className).newInstance();
+            if (manager == null) {
+                throw new DDFException("ERROR: Initializaing manager fail.");
+            }
+            return manager;
+
+        } catch (Exception e) {
+            // throw new DDFException("Cannot get DDFManager for engine " + engineName, e);
+            throw new DDFException(
+                    "Cannot get DDFManager for engine " + engineType + " " +
+                            "classname " + className + " " + e.getMessage());
+
+        }
+    }
+
+    private DDF mDummyDDF;
+
+    protected DDF getDummyDDF() throws DDFException {
+        if (mDummyDDF == null) mDummyDDF = this.newDDF(this);
+        return mDummyDDF;
+    }
 
 
-  @Override
-  public SqlResult sql(String command,
-                       Integer maxRows,
-                       DataSourceDescriptor dataSource) throws DDFException {
-    return this.getDummyDDF().getSqlHandler().
-            sqlHandle(command, maxRows, dataSource);
-  }
+    public DDF newDDF(DDFManager manager, Object data, Class<?>[] typeSpecs, String name, Schema schema)
+            throws DDFException {
+        DDF ddf = this.newDDF(new Class<?>[]{DDFManager.class, Object.class,
+                        Class[].class, String.class, Schema.class},
+                new Object[]{manager, data, typeSpecs, name, schema});
+        return ddf;
+    }
 
-  public SqlResult sql(String command, DataSourceDescriptor dataSource)
-          throws DDFException {
-    return this.getDummyDDF().getSqlHandler().
-            sqlHandle(command, null, dataSource);
-  }
+    public DDF newDDF(Object data, Class<?>[] typeSpecs, String name, Schema schema)
+            throws DDFException {
 
-  @Override
-  public SqlTypedResult sqlTyped(String command) throws DDFException {
-    return this.sqlTyped(command, null);
-  }
+        // @formatter:off
+        DDF ddf = this.newDDF(new Class<?>[]{DDFManager.class, Object.class,
+                        Class[].class, String.class, Schema.class},
+                new Object[]{this, data, typeSpecs, name, schema});
+        return ddf;
+    }
 
-  @Override
-  public SqlTypedResult sqlTyped(String command, Integer maxRows)
-          throws DDFException {
-    return this.sqlTyped(command, maxRows, null);
-  }
+    /**
+     * Instantiates a new DDF of the type specified in ddf.ini as "DDF", using the constructor that requires only
+     * {@link DDFManager} as an argument.
+     *
+     * @param manager the {@link DDFManager} to assign
+     * @return the newly instantiated DDF
+     * @throws DDFException
+     */
+    public DDF newDDF(DDFManager manager) throws DDFException {
+        DDF ddf = this.newDDF(new Class<?>[]{DDFManager.class}, new Object[]{manager});
+        ddf.getPersistenceHandler().setPersistable(false);
+        return ddf;
+    }
 
-  @Override
-  public SqlTypedResult sqlTyped(String command,
-                                 Integer maxRows,
-                                 DataSourceDescriptor dataSource)
-          throws DDFException {
-    // @Note This is another possible solution, which I think is more stable.
-    // return this.getDummyDDF().getSqlHandler().sqlTyped(command, maxRows, dataSource);
-    return new SqlTypedResult(sql(command, maxRows, dataSource));
-  }
+    /**
+     * Instantiates a new DDF of the type specified in ddf.ini as "DDF", passing in this DDFManager as the sole argument
+     *
+     * @return the newly instantiated DDF
+     * @throws DDFException
+     */
+    public DDF newDDF() throws DDFException {
+        DDF ddf = this.newDDF(new Class<?>[]{DDFManager.class}, new Object[]{this});
+        ddf.getPersistenceHandler().setPersistable(false);
+        return ddf;
+    }
 
-  // //// Persistence handling //////
+    @SuppressWarnings("unchecked")
+    private DDF newDDF(Class<?>[] argTypes, Object[] argValues) throws DDFException {
 
-  public void unpersist(String namespace, String name) throws DDFException {
-    this.getDummyDDF().getPersistenceHandler().unpersist(namespace, name);
-  }
+        String className = Config.getValueWithGlobalDefault(this.getEngine(), ConfigConstant.FIELD_DDF);
+        if (Strings.isNullOrEmpty(className)) throw new DDFException(String.format(
+                "Cannot determine class name for [%s] %s", this.getEngine(), "DDF"));
 
-  public static IPersistible doLoad(String uri) throws DDFException {
-    return doLoad(new PersistenceUri(uri));
-  }
+        try {
+            Constructor<DDF> cons = (Constructor<DDF>) Class.forName(className).getDeclaredConstructor(argTypes);
+            if (cons == null) throw new DDFException("Cannot get constructor for " + className);
 
-  public static IPersistible doLoad(PersistenceUri uri) throws DDFException {
-    if (uri == null) throw new DDFException("URI cannot be null");
-    if (Strings.isNullOrEmpty(uri.getEngine()))
-      throw new DDFException("Engine/Protocol in URI cannot be missing");
-    return DDFManager.get(EngineType.fromString(uri.getEngine())).load(uri);
-  }
+            cons.setAccessible(true); // make sure we can use it whether it's
+            // private, protected, or public
 
-  public IPersistible load(String namespace, String name) throws DDFException {
-    return this.getDummyDDF().getPersistenceHandler().load(namespace, name);
-  }
+            DDF ddf = cons.newInstance(argValues);
+            if (ddf == null) throw new DDFException("Cannot instantiate a new instance of " + className);
+            this.addDDF(ddf);
+            return ddf;
 
-  public IPersistible load(PersistenceUri uri) throws DDFException {
-    return this.getDummyDDF().getPersistenceHandler().load(uri);
-  }
+        } catch (Exception e) {
+            throw new DDFException(String.format(
+                    "While instantiating a new %s DDF of class %s with argTypes %s and argValues %s", this.getEngine(),
+                    className, Arrays.toString(argTypes), Arrays.toString(argValues)), e);
+        }
+    }
 
-  /**
-   * Create DDF from a file
-   * TODO: we should change the name of this function to match its functionality
-   *
-   * @param fileURL
-   * @param fieldSeparator
-   * @return
-   * @throws DDFException
-   */
-  public abstract DDF loadFile(String fileURL, String fieldSeparator) throws DDFException;
+    // ////// ISupportPhantomReference ////////
 
-  public DDF load(DataSourceDescriptor ds) throws DDFException {
-    return mDataSourceManager.load(ds);
-  }
+    public void cleanup() {
+        // Do nothing in the base
+    }
 
-  public void export2csv(DDF ddf, String fileURL, String fieldSeparator, Boolean hasHead) throws DDFException {
-    mDataSourceManager.export2csv(ddf, fileURL, fieldSeparator, hasHead);
-  }
+    // ////// IDDFManager ////////
 
-  public void export2csv(SqlResult result, String fileURL, String fieldSeparator, Boolean hasHead) throws DDFException {
-    mDataSourceManager.export2csv(result, fileURL, fieldSeparator, hasHead);
-  }
+    @Override
+    public void startup() {
 
-  public abstract DDF copyFrom(DDF ddf, String tgtname) throws DDFException;
+        PhantomReference.register(this);
+    }
 
-  public abstract DDF copyFrom(DDFManager manager, String ddfname, String tgtname) throws DDFException;
+    @Override
+    public void shutdown() {
+        // Do nothing in the base
+    }
+
+
+    // ////// IDDFRegistry ////////
+
+    private static final ObjectRegistry sObjectRegistry = new ObjectRegistry();
+    public final ObjectRegistry REGISTRY = sObjectRegistry;
+
+
+    // ////// IHandleSql facade methods ////////
+    @Override
+    public DDF sql2ddf(String command) throws DDFException {
+        return this.sql2ddf(command, null, null, null);
+    }
+
+    public DDF sql2ddf(String command, Boolean queyOnDDF) throws DDFException {
+        return this.sql2ddf(command,
+                new SQLDataSourceDescriptor(null, queyOnDDF, null, null, null));
+    }
+
+    public DDF sql2ddf(String command, DataSourceDescriptor dataSource)
+            throws DDFException {
+        return this.sql2ddf(command, null, dataSource, null);
+    }
+
+    @Override
+    public DDF sql2ddf(String command, Schema schema) throws DDFException {
+        return this.sql2ddf(command, schema, null, null);
+    }
+
+    @Override
+    public DDF sql2ddf(String command, DataFormat dataFormat)
+            throws DDFException {
+        return this.sql2ddf(command, null, null, dataFormat);
+    }
+
+    @Override
+    public DDF sql2ddf(String command,
+                       Schema schema,
+                       DataSourceDescriptor dataSource)
+            throws DDFException {
+        return this.sql2ddf(command, schema, dataSource, null);
+    }
+
+    @Override
+    public DDF sql2ddf(String command, Schema schema, DataFormat dataFormat)
+            throws DDFException {
+        return this.sql2ddf(command, schema, null, dataFormat);
+    }
+
+    @Override
+    public DDF sql2ddf(String command,
+                       Schema schema,
+                       DataSourceDescriptor dataSource,
+                       DataFormat dataFormat) throws DDFException {
+        return this.getDummyDDF().getSqlHandler().
+                sql2ddfHandle(command, schema, dataSource, dataFormat);
+    }
+
+
+    @Override
+    public SqlResult sql(String command) throws DDFException {
+        return this.sql(command, (Integer) null);
+    }
+
+    public SqlResult sql(String command, Boolean queryOnDDF) throws DDFException {
+        return this.sql(command,
+                new SQLDataSourceDescriptor(null, queryOnDDF, null, null, null));
+    }
+
+    @Override
+    public SqlResult sql(String command, Integer maxRows) throws DDFException {
+        return this.sql(command, maxRows, null);
+    }
+
+
+    @Override
+    public SqlResult sql(String command,
+                         Integer maxRows,
+                         DataSourceDescriptor dataSource) throws DDFException {
+        return this.getDummyDDF().getSqlHandler().
+                sqlHandle(command, maxRows, dataSource);
+    }
+
+    public SqlResult sql(String command, DataSourceDescriptor dataSource)
+            throws DDFException {
+        return this.getDummyDDF().getSqlHandler().
+                sqlHandle(command, null, dataSource);
+    }
+
+    @Override
+    public SqlTypedResult sqlTyped(String command) throws DDFException {
+        return this.sqlTyped(command, null);
+    }
+
+    @Override
+    public SqlTypedResult sqlTyped(String command, Integer maxRows)
+            throws DDFException {
+        return this.sqlTyped(command, maxRows, null);
+    }
+
+    @Override
+    public SqlTypedResult sqlTyped(String command,
+                                   Integer maxRows,
+                                   DataSourceDescriptor dataSource)
+            throws DDFException {
+        // @Note This is another possible solution, which I think is more stable.
+        // return this.getDummyDDF().getSqlHandler().sqlTyped(command, maxRows, dataSource);
+        return new SqlTypedResult(sql(command, maxRows, dataSource));
+    }
+
+    // //// Persistence handling //////
+
+    public void unpersist(String namespace, String name) throws DDFException {
+        this.getDummyDDF().getPersistenceHandler().unpersist(namespace, name);
+    }
+
+    public static IPersistible doLoad(String uri) throws DDFException {
+        return doLoad(new PersistenceUri(uri));
+    }
+
+    public static IPersistible doLoad(PersistenceUri uri) throws DDFException {
+        if (uri == null) throw new DDFException("URI cannot be null");
+        if (Strings.isNullOrEmpty(uri.getEngine()))
+            throw new DDFException("Engine/Protocol in URI cannot be missing");
+        return DDFManager.get((uri.getEngine())).load(uri);
+    }
+
+    public IPersistible load(String namespace, String name) throws DDFException {
+        return this.getDummyDDF().getPersistenceHandler().load(namespace, name);
+    }
+
+    public IPersistible load(PersistenceUri uri) throws DDFException {
+        return this.getDummyDDF().getPersistenceHandler().load(uri);
+    }
+
+    /**
+     * Create DDF from a file
+     * TODO: we should change the name of this function to match its functionality
+     *
+     * @param fileURL
+     * @param fieldSeparator
+     * @return
+     * @throws DDFException
+     */
+    public abstract DDF loadFile(String fileURL, String fieldSeparator) throws DDFException;
+
+    public DDF load(DataSourceDescriptor ds) throws DDFException {
+        return mDataSourceManager.load(ds);
+    }
+
+    public void export2csv(DDF ddf, String fileURL, String fieldSeparator, Boolean hasHead) throws DDFException {
+        mDataSourceManager.export2csv(ddf, fileURL, fieldSeparator, hasHead);
+    }
+
+    public void export2csv(SqlResult result, String fileURL, String fieldSeparator, Boolean hasHead) throws DDFException {
+        mDataSourceManager.export2csv(result, fileURL, fieldSeparator, hasHead);
+    }
+
+    public abstract DDF copyFrom(DDF ddf, String tgtname) throws DDFException;
+
+    public abstract DDF copyFrom(DDFManager manager, String ddfname, String tgtname) throws DDFException;
 
 }
